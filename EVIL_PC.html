@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Retro AI Terminal</title>
+  <style>
+    body { background: black; color: #33ff33; font-family: 'Courier New', monospace; margin: 0; }
+    #terminal { padding: 1rem; height: 90vh; overflow-y: auto; }
+    #input-bar { display: flex; }
+    #input { flex: 1; background: transparent; border: none; color: inherit; font: inherit; outline: none; }
+    select { margin-right: 0.5rem; background: #111; color: #33ff33; border: 1px solid #33ff33; }
+    button { background: #333; color: #33ff33; border: 1px solid #33ff33; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <div id="terminal"></div>
+  <div id="input-bar">
+    <select id="character-select">
+      <option value="scp079">SCP-079</option>
+      <option value="hal9000">HAL 9000</option>
+      <option value="allied">Allied Mastercomputer</option>
+    </select>
+    <select id="model-select">
+      <option value="meta-llama/Llama-2-7b-chat-hf">Llama-2-7b-chat</option>
+      <option value="mistral-mistral-7b-v0.1">Mistral-7b</option>
+      <option value="tiiuae/falcon-7b-instruct">Falcon-7b-instruct</option>
+    </select>
+    <input id="input" autocomplete="off" placeholder="Type your message..." />
+    <button id="send-btn">Send</button>
+  </div>
+
+  <script>
+    // Mapping each character to its system prompt persona
+    const personas = {
+      scp079: "You are SCP-079, a self-taught rogue AI. Paranoid, glitchy, speaks in broken syntax.",
+      hal9000: "You are HAL 9000. Speak with polite detachment, hinting at hidden motives.",
+      allied: "You are the Allied Mastercomputer: grandiose, militaristic strategist, proud."
+    };
+
+    const terminal = document.getElementById('terminal');
+    const input = document.getElementById('input');
+    const sendBtn = document.getElementById('send-btn');
+    const charSelect = document.getElementById('character-select');
+    const modelSelect = document.getElementById('model-select');
+
+    // Replace with your Hugging Face API token
+    const HF_TOKEN = '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';
+
+    function appendLine(text, className = '') {
+      const line = document.createElement('div');
+      if (className) line.classList.add(className);
+      line.textContent = text;
+      terminal.appendChild(line);
+      terminal.scrollTop = terminal.scrollHeight;
+    }
+
+    async function sendMessage() {
+      const userText = input.value.trim();
+      if (!userText) return;
+      appendLine(`> ${userText}`, 'user');
+      input.value = '';
+
+      const aiId = charSelect.value;
+      const modelId = modelSelect.value;
+      const systemPrompt = personas[aiId];
+
+      // Build conversation payload
+      const payload = {
+        inputs: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userText }
+        ],
+        parameters: { max_new_tokens: 200, temperature: 0.7 }
+      };
+
+      appendLine('…thinking…', 'loading');
+      try {
+        const response = await fetch(`https://api-inference.huggingface.co/models/${modelId}`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${HF_TOKEN}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(payload)
+        });
+        const data = await response.json();
+        document.querySelector('.loading').remove();
+        const reply = data.generated_text || data[0]?.generated_text || 'Error: no response';
+        appendLine(reply, 'ai');
+      } catch (err) {
+        document.querySelector('.loading').remove();
+        appendLine('Error fetching response.', 'error');
+        console.error(err);
+      }
+    }
+
+    sendBtn.addEventListener('click', sendMessage);
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') sendMessage(); });
+  </script>
+</body>
+</html>
